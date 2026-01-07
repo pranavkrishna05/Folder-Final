@@ -28,13 +28,15 @@ class CartRepository:
             return None
         return CartItem(*row)
 
-    def delete_item(self, cart_item_id: int) -> None:
+    def update_quantity(self, cart_item_id: int, quantity: int) -> None:
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
-        cursor.execute("DELETE FROM cart WHERE id = ?", (cart_item_id,))
+        cursor.execute(
+            "UPDATE cart SET quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (quantity, cart_item_id),
+        )
         connection.commit()
         connection.close()
-        logger.info("Deleted item with cart ID %s", cart_item_id)
 
     def get_user_cart_items(self, user_id: Optional[int]) -> List[CartItem]:
         connection = sqlite3.connect(self._db_path)
