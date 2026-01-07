@@ -1,7 +1,7 @@
 import sqlite3
-import logging
 from typing import Optional
 from models.product import Product
+import logging
 
 logger = logging.getLogger(__name__)
 
