@@ -3,7 +3,7 @@ from datetime import datetime
 
 @dataclass
 class CartItem:
-    cart_id: int
+    id: int
     user_id: int | None
     product_id: int
     quantity: int
