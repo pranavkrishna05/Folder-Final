@@ -1,6 +1,6 @@
 import sqlite3
 import logging
-from typing import Optional
+from typing import List, Tuple
 from models.product import Product
 
 logger = logging.getLogger(__name__)
@@ -9,37 +9,31 @@ class ProductRepository:
     def __init__(self, db_path: str = "database/app.db") -> None:
         self._db_path = db_path
 
-    def find_by_id(self, product_id: int) -> Optional[Product]:
+    def search_products(self, query: str, category: str, offset: int, limit: int) -> Tuple[List[Product], int]:
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
-        cursor.execute(
-            "SELECT id, name, description, price, category, is_deleted, created_at, updated_at FROM products WHERE id = ?",
-            (product_id,),
-        )
-        row = cursor.fetchone()
-        connection.close()
-        if not row:
-            return None
-        return Product(*row)
 
-    def soft_delete_product(self, product_id: int) -> None:
-        connection = sqlite3.connect(self._db_path)
-        cursor = connection.cursor()
-        cursor.execute(
-            "UPDATE products SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (product_id,),
-        )
-        connection.commit()
-        connection.close()
-        logger.info("Product ID %s marked as deleted.", product_id)
+        query_text = "SELECT id, name, description, price, category, is_deleted, created_at, updated_at FROM products WHERE is_deleted = 0"
+        params: list[str] = []
 
-    def exists(self, product_id: int) -> bool:
-        connection = sqlite3.connect(self._db_path)
-        cursor = connection.cursor()
-        cursor.execute(
-            "SELECT COUNT(1) FROM products WHERE id = ? AND is_deleted = 0",
-            (product_id,),
-        )
-        count = cursor.fetchone()[0]
+        if query:
+            query_text += " AND (name LIKE ? OR description LIKE ?)"
+            like_query = f"%{query}%"
+            params.extend([like_query, like_query])
+        if category:
+            query_text += " AND category = ?"
+            params.append(category)
+
+        count_query = f"SELECT COUNT(1) FROM ({query_text})"
+        cursor.execute(count_query, tuple(params))
+        total = cursor.fetchone()[0]
+
+        query_text += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        cursor.execute(query_text, tuple(params))
+
+        rows = cursor.fetchall()
         connection.close()
-        return count > 0
+
+        results = [Product(*row) for row in rows]
+        return results, total
