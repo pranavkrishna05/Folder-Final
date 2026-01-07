@@ -2,12 +2,9 @@ import logging
 import signal
 import sys
 from flask import Flask, jsonify, request
-from datetime import datetime, timedelta
 from models.user import User
-from models.password_reset import PasswordReset
 from repositories.user_repository import UserRepository
-from repositories.password_reset_repository import PasswordResetRepository
-from services.auth.password_reset_service import PasswordResetService
+from services.auth.profile_service import ProfileService
 
 app = Flask(__name__)
 
@@ -18,32 +15,43 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 user_repository = UserRepository()
-password_reset_repository = PasswordResetRepository()
-password_reset_service = PasswordResetService(user_repository, password_reset_repository)
+profile_service = ProfileService(user_repository)
 
-@app.route("/password-reset/request", methods=["POST"])
-def request_password_reset() -> tuple:
-    data = request.get_json()
-    if not data or "email" not in data:
-        return jsonify({"error": "Email field is required"}), 400
+@app.route("/profile/<int:user_id>", methods=["GET"])
+def get_profile(user_id: int) -> tuple:
     try:
-        token = password_reset_service.initiate_reset(data["email"])
-        return jsonify({"reset_token": token}), 200
-    except ValueError as e:
-        logger.error(f"Password reset request error: {e}")
-        return jsonify({"error": str(e)}), 400
+        user = profile_service.get_profile(user_id)
+        if not user:
+            return jsonify({"error": "User not found."}), 404
+        return jsonify({
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "preferences": user.preferences
+        }), 200
+    except Exception as e:
+        logger.error(f"Error fetching profile: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
-@app.route("/password-reset/confirm", methods=["POST"])
-def confirm_password_reset() -> tuple:
+@app.route("/profile/<int:user_id>", methods=["PUT"])
+def update_profile(user_id: int) -> tuple:
     data = request.get_json()
-    if not data or "token" not in data or "new_password" not in data:
-        return jsonify({"error": "Token and new password fields are required"}), 400
+    if not data:
+        return jsonify({"error": "Invalid payload"}), 400
     try:
-        password_reset_service.complete_reset(data["token"], data["new_password"])
-        return jsonify({"message": "Password reset successful"}), 200
+        user = profile_service.update_profile(user_id, data)
+        return jsonify({
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "preferences": user.preferences
+        }), 200
     except ValueError as e:
-        logger.error(f"Password reset confirmation error: {e}")
+        logger.error(f"Profile update error: {e}")
         return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 def shutdown_handler(signal_number, _frame):
     logger.info(f"Received shutdown signal ({signal_number}), stopping application gracefully.")
@@ -53,5 +61,5 @@ signal.signal(signal.SIGINT, shutdown_handler)
 signal.signal(signal.SIGTERM, shutdown_handler)
 
 if __name__ == "__main__":
-    logger.info("Starting Flask application for password reset management")
+    logger.info("Starting Flask application for profile management")
     app.run(host="0.0.0.0", port=5000)
