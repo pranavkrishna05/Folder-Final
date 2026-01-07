@@ -7,7 +7,7 @@ class Product:
     name: str
     description: str
     price: float
-    category: str
+    category_id: int
     is_deleted: bool
     created_at: datetime
     updated_at: datetime
