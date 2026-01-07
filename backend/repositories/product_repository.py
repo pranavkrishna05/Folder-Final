@@ -10,11 +10,10 @@ class ProductRepository:
         self._db_path = db_path
 
     def find_by_id(self, product_id: int) -> Optional[Product]:
-        logger.info(f"Fetching product with id {product_id}")
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT id, name, description, price, category, created_at, updated_at FROM products WHERE id = ?",
+            "SELECT id, name, description, price, category, is_deleted, created_at, updated_at FROM products WHERE id = ?",
             (product_id,),
         )
         row = cursor.fetchone()
@@ -23,25 +22,24 @@ class ProductRepository:
             return None
         return Product(*row)
 
-    def update_product(self, product_id: int, name: str, description: str, price: float) -> Product:
-        logger.info(f"Updating product ID {product_id}")
+    def soft_delete_product(self, product_id: int) -> None:
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
         cursor.execute(
-            """
-            UPDATE products
-            SET name = ?, description = ?, price = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-            """,
-            (name, description, price, product_id),
-        )
-        connection.commit()
-        cursor.execute(
-            "SELECT id, name, description, price, category, created_at, updated_at FROM products WHERE id = ?",
+            "UPDATE products SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (product_id,),
         )
-        row = cursor.fetchone()
+        connection.commit()
         connection.close()
-        if not row:
-            raise ValueError("Product not found after update.")
-        return Product(*row)
+        logger.info("Product ID %s marked as deleted.", product_id)
+
+    def exists(self, product_id: int) -> bool:
+        connection = sqlite3.connect(self._db_path)
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT COUNT(1) FROM products WHERE id = ? AND is_deleted = 0",
+            (product_id,),
+        )
+        count = cursor.fetchone()[0]
+        connection.close()
+        return count > 0
