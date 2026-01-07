@@ -1,55 +1,40 @@
 import sqlite3
-import logging
-from typing import Optional, List
+from typing import List
 from models.cart_item import CartItem
 
-logger = logging.getLogger(__name__)
-
 class CartRepository:
-    def __init__(self, db_path: str = "database/app.db") -> None:
+    def __init__(self, db_path: str = "database/app.db"):
         self._db_path = db_path
 
-    def find_cart_item(self, user_id: Optional[int], product_id: int) -> Optional[CartItem]:
-        connection = sqlite3.connect(self._db_path)
-        cursor = connection.cursor()
-        if user_id is None:
-            cursor.execute(
-                "SELECT id, user_id, product_id, quantity, created_at, updated_at FROM cart WHERE user_id IS NULL AND product_id = ?",
-                (product_id,),
-            )
-        else:
-            cursor.execute(
-                "SELECT id, user_id, product_id, quantity, created_at, updated_at FROM cart WHERE user_id = ? AND product_id = ?",
-                (user_id, product_id),
-            )
-        row = cursor.fetchone()
-        connection.close()
-        if not row:
-            return None
-        return CartItem(*row)
-
-    def update_quantity(self, cart_item_id: int, quantity: int) -> None:
+    def get_user_cart(self, user_id: int) -> List[CartItem]:
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
         cursor.execute(
-            "UPDATE cart SET quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (quantity, cart_item_id),
+            "SELECT id, user_id, product_id, quantity, created_at, updated_at FROM cart WHERE user_id = ?",
+            (user_id,),
+        )
+        rows = cursor.fetchall()
+        connection.close()
+        return [CartItem(*r) for r in rows]
+
+    def save_user_cart_snapshot(self, user_id: int) -> None:
+        connection = sqlite3.connect(self._db_path)
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM saved_carts WHERE user_id = ?", (user_id,))
+        cursor.execute(
+            "INSERT INTO saved_carts (user_id, cart_data) SELECT ?, json_group_array(json_object('product_id', product_id, 'quantity', quantity)) FROM cart WHERE user_id = ?",
+            (user_id, user_id),
         )
         connection.commit()
         connection.close()
 
-    def get_user_cart_items(self, user_id: Optional[int]) -> List[CartItem]:
+    def load_user_cart_snapshot(self, user_id: int) -> List[tuple]:
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
-        if user_id is None:
-            cursor.execute(
-                "SELECT id, user_id, product_id, quantity, created_at, updated_at FROM cart WHERE user_id IS NULL"
-            )
-        else:
-            cursor.execute(
-                "SELECT id, user_id, product_id, quantity, created_at, updated_at FROM cart WHERE user_id = ?",
-                (user_id,),
-            )
-        rows = cursor.fetchall()
+        cursor.execute("SELECT cart_data FROM saved_carts WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
         connection.close()
-        return [CartItem(*r) for r in rows]
+        if not row or not row[0]:
+            return []
+        import json
+        return json.loads(row[0])
