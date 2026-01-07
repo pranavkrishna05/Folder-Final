@@ -1,12 +1,9 @@
 import sqlite3
-import logging
 from typing import Optional
 from models.product import Product
 
-logger = logging.getLogger(__name__)
-
 class ProductRepository:
-    def __init__(self, db_path: str = "database/app.db") -> None:
+    def __init__(self, db_path: str = "database/app.db"):
         self._db_path = db_path
 
     def find_by_id(self, product_id: int) -> Optional[Product]:
