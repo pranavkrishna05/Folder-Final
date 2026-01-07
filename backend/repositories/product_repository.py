@@ -9,16 +9,10 @@ class ProductRepository:
     def __init__(self, db_path: str = "database/app.db") -> None:
         self._db_path = db_path
 
-    def create_product(self, name: str, description: str, price: float, category: str) -> Product:
-        logger.info("Creating product in the database")
+    def find_by_id(self, product_id: int) -> Optional[Product]:
+        logger.info(f"Fetching product with id {product_id}")
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
-        cursor.execute(
-            "INSERT INTO products (name, description, price, category) VALUES (?, ?, ?, ?)",
-            (name, description, price, category),
-        )
-        connection.commit()
-        product_id = cursor.lastrowid
         cursor.execute(
             "SELECT id, name, description, price, category, created_at, updated_at FROM products WHERE id = ?",
             (product_id,),
@@ -26,19 +20,28 @@ class ProductRepository:
         row = cursor.fetchone()
         connection.close()
         if not row:
-            raise ValueError("Failed to create product.")
+            return None
         return Product(*row)
 
-    def find_by_name(self, name: str) -> Optional[Product]:
-        logger.info(f"Checking if product exists by name: {name}")
+    def update_product(self, product_id: int, name: str, description: str, price: float) -> Product:
+        logger.info(f"Updating product ID {product_id}")
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT id, name, description, price, category, created_at, updated_at FROM products WHERE name = ?",
-            (name,),
+            """
+            UPDATE products
+            SET name = ?, description = ?, price = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (name, description, price, product_id),
+        )
+        connection.commit()
+        cursor.execute(
+            "SELECT id, name, description, price, category, created_at, updated_at FROM products WHERE id = ?",
+            (product_id,),
         )
         row = cursor.fetchone()
         connection.close()
         if not row:
-            return None
+            raise ValueError("Product not found after update.")
         return Product(*row)
