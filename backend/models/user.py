@@ -5,7 +5,6 @@ from datetime import datetime
 class User:
     id: int
     email: str
-    full_name: str
-    preferences: str
+    password_hash: str
     created_at: datetime
     updated_at: datetime
