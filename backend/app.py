@@ -2,9 +2,8 @@ import logging
 import signal
 import sys
 from flask import Flask, jsonify, request
-from models.product import Product
 from repositories.product_repository import ProductRepository
-from services.products.product_update_service import ProductUpdateService
+from services.products.product_delete_service import ProductDeleteService
 
 app = Flask(__name__)
 
@@ -15,35 +14,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 product_repository = ProductRepository()
-product_service = ProductUpdateService(product_repository)
+product_delete_service = ProductDeleteService(product_repository)
 
-@app.route("/products/<int:product_id>", methods=["PUT"])
-def update_product(product_id: int) -> tuple:
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Invalid JSON payload"}), 400
-    name = data.get("name")
-    description = data.get("description")
-    price = data.get("price")
-    updated_by_admin = data.get("updated_by_admin", False)
+@app.route("/products/<int:product_id>", methods=["DELETE"])
+def delete_product(product_id: int) -> tuple:
+    data = request.get_json() or {}
+    confirm = data.get("confirm", False)
+    is_admin = data.get("is_admin", False)
 
-    if not updated_by_admin:
-        return jsonify({"error": "Only admin users can update products"}), 403
-
+    if not is_admin:
+        return jsonify({"error": "Only admins can delete products."}), 403
+    if not confirm:
+        return jsonify({"error": "Deletion must be confirmed."}), 400
     try:
-        product = product_service.update_product(product_id, name, description, price)
-        return jsonify({
-            "id": product.id,
-            "name": product.name,
-            "description": product.description,
-            "price": product.price,
-            "category": product.category,
-        }), 200
+        product_delete_service.delete_product(product_id)
+        logger.info("Product %s deleted successfully.", product_id)
+        return jsonify({"message": f"Product {product_id} deleted successfully."}), 200
     except ValueError as e:
-        logger.error(f"Product update error: {e}")
+        logger.error(f"Product deletion failed: {e}")
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        logger.error(f"Internal error: {e}")
+        logger.exception("Internal server error.")
         return jsonify({"error": "Internal server error"}), 500
 
 def shutdown_handler(signal_number, _frame):
@@ -54,5 +45,5 @@ signal.signal(signal.SIGINT, shutdown_handler)
 signal.signal(signal.SIGTERM, shutdown_handler)
 
 if __name__ == "__main__":
-    logger.info("Starting Flask application for product update management")
+    logger.info("Starting Flask application for product deletion management")
     app.run(host="0.0.0.0", port=5000)
