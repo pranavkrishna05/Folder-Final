@@ -8,5 +8,6 @@ class Product:
     description: str
     price: float
     category: str
+    is_deleted: bool
     created_at: datetime
     updated_at: datetime
