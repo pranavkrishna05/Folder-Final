@@ -13,7 +13,7 @@ class ProductRepository:
         connection = sqlite3.connect(self._db_path)
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT id, name, description, price, category_id, is_deleted, created_at, updated_at FROM products WHERE id = ?",
+            "SELECT id, name, description, price, category_id, is_deleted, created_at, updated_at FROM products WHERE id = ? AND is_deleted = 0",
             (product_id,),
         )
         row = cursor.fetchone()
@@ -21,13 +21,3 @@ class ProductRepository:
         if not row:
             return None
         return Product(*row)
-
-    def update_category(self, product_id: int, category_id: int) -> None:
-        connection = sqlite3.connect(self._db_path)
-        cursor = connection.cursor()
-        cursor.execute(
-            "UPDATE products SET category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (category_id, product_id),
-        )
-        connection.commit()
-        connection.close()
