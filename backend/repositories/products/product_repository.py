@@ -1,6 +1,6 @@
 import sqlite3
-from datetime import datetime
 from typing import Optional, List
+from datetime import datetime
 from backend.models.products.product import Product
 import logging
 
@@ -18,35 +18,26 @@ class ProductRepository:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, name, description, price, category_id, created_at, updated_at FROM products WHERE id=?",
+                "SELECT id, name, description, price, category_id, is_deleted, created_at, updated_at FROM products WHERE id=?",
                 (product_id,),
             )
             row = cursor.fetchone()
             return Product(*row) if row else None
 
-    def update_product(self, product_id: int, name: str, description: str, price: float) -> Optional[Product]:
-        if price <= 0:
-            raise ValueError("Product price must be a numeric value greater than zero")
-        if not description or description.strip() == "":
-            raise ValueError("Description cannot be removed or empty")
-        logger.info("Updating product id=%s", product_id)
+    def soft_delete_product(self, product_id: int) -> None:
+        logger.info("Soft deleting product id=%s", product_id)
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE products SET is_deleted=1, updated_at=? WHERE id=?",
+                (datetime.now(), product_id),
+            )
+
+    def list_active_products(self) -> List[Product]:
+        logger.info("Listing all active products")
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                UPDATE products
-                SET name=?, description=?, price=?, updated_at=?
-                WHERE id=?
-                """,
-                (name, description, price, datetime.now(), product_id),
+                "SELECT id, name, description, price, category_id, is_deleted, created_at, updated_at FROM products WHERE is_deleted=0"
             )
-            conn.commit()
-        return self.get_product_by_id(product_id)
-
-    def list_products(self) -> List[Product]:
-        logger.info("Listing all products")
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, name, description, price, category_id, created_at, updated_at FROM products")
             rows = cursor.fetchall()
             return [Product(*row) for row in rows]
