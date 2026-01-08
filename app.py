@@ -1,19 +1,21 @@
 import logging
 from flask import Flask
 from backend.config.settings import settings
-from backend.repositories.users.profile_repository import ProfileRepository
-from backend.services.user_management.profile_service import ProfileService
-from backend.controllers.users.profile_controller import init_profile_routes
+from backend.repositories.products.product_repository import ProductRepository
+from backend.repositories.products.category_repository import CategoryRepository
+from backend.services.product_catalog.product_service import ProductService
+from backend.controllers.products.product_controller import init_product_routes
 
 def create_app() -> Flask:
     app = Flask(__name__)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-    profile_repo = ProfileRepository(settings.DATABASE_PATH)
-    profile_service = ProfileService(profile_repo)
+    product_repo = ProductRepository(settings.DATABASE_PATH)
+    category_repo = CategoryRepository(settings.DATABASE_PATH)
+    product_service = ProductService(product_repo, category_repo)
 
-    app.register_blueprint(init_profile_routes(profile_service), url_prefix="/api/users")
+    app.register_blueprint(init_product_routes(product_service), url_prefix="/api/products")
 
     @app.route("/health", methods=["GET"])
     def health() -> dict:
