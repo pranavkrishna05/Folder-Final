@@ -2,6 +2,7 @@ import logging
 from repositories.cart_repository import CartRepository
 from repositories.product_repository import ProductRepository
 from models.cart_item import CartItem
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,10 @@ class CartService:
         existing_item = self._cart_repo.find_existing_item(user_id, product_id)
         if existing_item:
             new_quantity = existing_item.quantity + quantity
-            self._cart_repo.update_quantity(existing_item.cart_id, new_quantity)
+            self._cart_repo.update_quantity(existing_item.cart_id, new_quantity, datetime.now())
             logger.info("Updated quantity for product %s in cart.", product_id)
             existing_item.quantity = new_quantity
+            existing_item.last_updated = datetime.now()
             return existing_item
         return self._cart_repo.add_item(user_id, product_id, quantity)
+
