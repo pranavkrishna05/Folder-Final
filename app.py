@@ -2,20 +2,23 @@ import logging
 from flask import Flask
 from backend.config.settings import settings
 from backend.repositories.users.user_repository import UserRepository
-from backend.services.user_management.registration_service import RegistrationService
-from backend.controllers.users.registration_controller import init_registration_routes
+from backend.repositories.users.session_repository import SessionRepository
+from backend.services.user_management.login_service import LoginService
+from backend.controllers.users.login_controller import init_login_routes
 
 def create_app() -> Flask:
     app = Flask(__name__)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-    user_repository = UserRepository(settings.DATABASE_PATH)
-    registration_service = RegistrationService(user_repository)
-    app.register_blueprint(init_registration_routes(registration_service), url_prefix="/api/users")
+    user_repo = UserRepository(settings.DATABASE_PATH)
+    session_repo = SessionRepository(settings.DATABASE_PATH)
+    login_service = LoginService(user_repo, session_repo)
+
+    app.register_blueprint(init_login_routes(login_service), url_prefix="/api/users")
 
     @app.route("/health", methods=["GET"])
-    def health_check() -> dict:
+    def health() -> dict:
         return {"status": "healthy"}
 
     return app
