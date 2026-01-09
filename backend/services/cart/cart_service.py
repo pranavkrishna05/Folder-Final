@@ -25,3 +25,8 @@ class CartService:
             existing_item.quantity = new_quantity
             return existing_item
         return self._cart_repo.add_item(user_id, product_id, quantity)
+
+    def clear_cart_after_logout(self, user_id: int):
+        logger.info("Clearing cart for user ID %s after logout", user_id)
+        self._cart_repo.clear_user_cart(user_id)
+        logger.info("Cart cleared for user ID %s", user_id)
